@@ -61,10 +61,39 @@ async function del(store,key){
   });
 }
 
+// exportar
 export const idb = {
   putParticipant: (p)=> put(STORE_PARTS,p),
   getParticipant: (token)=> get(STORE_PARTS,token),
   putResponse: (r)=> put(STORE_RESP,r),
   getPendingResponses: ()=> getAll(STORE_RESP),
-  deleteResponse: (id)=> del(STORE_RESP,id)
+  deleteResponse: (id)=> del(STORE_RESP,id),
+  // nuevos:
+  getAllParticipants,
+  bulkPutParticipants
 };
+
+
+// (coloca dentro de tu idb.js ya existente)
+async function getAllParticipants() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE_PARTS, 'readonly');
+    const r = tx.objectStore(STORE_PARTS).getAll();
+    r.onsuccess = () => res(r.result || []);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+async function bulkPutParticipants(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return;
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE_PARTS, 'readwrite');
+    const store = tx.objectStore(STORE_PARTS);
+    for (const p of arr) store.put(p);
+    tx.oncomplete = () => res(true);
+    tx.onerror = () => rej(tx.error);
+  });
+}
+

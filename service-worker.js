@@ -1,48 +1,64 @@
-const CACHE = 'pwa-cache-v2'; // Incrementar versión
-const ASSETS = [
-  '/',
+// service-worker.js
+const CACHE_NAME = 'pwa-evento-shell-v1';
+const FILES_TO_CACHE = [
+  '/',               // start_url
   '/index.html',
-  '/style.css',
   '/app.js',
   '/idb.js',
-  '/supabase-config.js',
-  '/service-worker.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+  '/style.css',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
+  // si tienes más assets, agrégalos aquí
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(ASSETS))
+// instalamos y cacheamos el shell
+self.addEventListener('install', (evt) => {
+  console.log('[SW] install');
+  evt.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(FILES_TO_CACHE))
       .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.filter(key => key !== CACHE)
-          .map(key => caches.delete(key))
-      );
-    })
+// activación: limpiar caches viejos
+self.addEventListener('activate', (evt) => {
+  console.log('[SW] activate');
+  evt.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => (k !== CACHE_NAME) ? caches.delete(k) : null))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  
-  // Estrategia: Network First, luego Cache
-  e.respondWith(
-    fetch(e.request)
-      .then(response => {
-        // Clonar para guardar en caché
-        const responseClone = response.clone();
-        caches.open(CACHE)
-          .then(cache => cache.put(e.request, responseClone));
-        return response;
-      })
-      .catch(() => caches.match(e.request))
+// fetch: responder desde cache (primero) y fallbacks
+self.addEventListener('fetch', (evt) => {
+  const req = evt.request;
+  // navigation requests -> serve index.html (app shell)
+  if (req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'))) {
+    evt.respondWith(
+      caches.match('/index.html').then(cached => cached || fetch('/index.html'))
+    );
+    return;
+  }
+
+  // otros recursos: cache-first para assets, network-first para API (opcional)
+  evt.respondWith(
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req).then(resp => {
+        // solo cachear GET y respuestas 200
+        if (req.method === 'GET' && resp && resp.status === 200) {
+          const respClone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, respClone));
+        }
+        return resp;
+      }).catch(() => {
+        // fallback: si es imagen, devolver icon placeholder opcional
+        if (req.destination === 'image') return caches.match('/icon-192.png');
+        return new Response('', { status: 503, statusText: 'offline' });
+      });
+    })
   );
 });

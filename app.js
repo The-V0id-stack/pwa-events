@@ -2,6 +2,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 import { idb } from './idb.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { syncParticipantsFromSupabase } from './syncParticipants.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -25,6 +26,11 @@ let canvasEl = null;
 let canvasCtx = null;
 let scanRaf = null;
 let scanning = false;
+
+// Promise que indica si la sincronización inicial de participants terminó
+let participantsReadyResolve;
+let participantsReadyReject;
+const participantsReady = new Promise((res, rej) => { participantsReadyResolve = res; participantsReadyReject = rej; });
 
 // normalize token
 function normalizeToken(t){ if(!t) return ''; t = String(t).trim(); try{return t.toUpperCase();}catch(e){return t;} }
@@ -237,7 +243,7 @@ async function insertResponseRemote(payload){
   }
 }
 
-// on QR scanned (handler)
+// on QR scanned (handler) — actualizado para esperar sync inicial
 async function onScanSuccess(decodedText){
   if (currentToken) return;
   currentToken = normalizeToken(extractTokenFromText(decodedText));
@@ -247,6 +253,23 @@ async function onScanSuccess(decodedText){
   // buscar local
   let participant = await idb.getParticipant(currentToken);
 
+  // Si no lo tenemos local y la app está en proceso de sincronización,
+  // esperamos corto (max 3s) por si la sync inicial trae los datos.
+  if (!participant) {
+    try {
+      // race entre la promesa de ready y timeout 3s
+      const timeout = new Promise(res => setTimeout(res, 3000, 'timeout'));
+      const wait = participantsReady.then(()=> 'done').catch(()=> 'err');
+      const result = await Promise.race([wait, timeout]);
+      if (result === 'done') {
+        participant = await idb.getParticipant(currentToken);
+      }
+    } catch(e){
+      console.warn('Espera de sync inicial fallida', e);
+    }
+  }
+
+  // si sigue sin participant y estamos online, intentar remoto
   if (!participant && navigator.onLine){
     const remote = await fetchParticipantRemote(currentToken);
     if (remote){
@@ -256,7 +279,7 @@ async function onScanSuccess(decodedText){
   }
 
   if (!participant){
-    statusEl.textContent = 'Token no válido';
+    statusEl.textContent = 'Token no válido / no disponible offline';
     currentToken = null;
     setTimeout(()=> startScanner(), 1200);
     return;
@@ -353,14 +376,55 @@ async function syncPending(){
 }
 
 // online listener
-window.addEventListener('online', ()=> {
+window.addEventListener('online', async ()=> {
   console.log('Online -> sincronizando');
+  // sincronizamos participants y respuestas pendientes
+  try {
+    const r = await syncParticipantsFromSupabase();
+    console.log('syncParticipantsFromSupabase on online:', r);
+  } catch(e){
+    console.warn('sync participants failed on online', e);
+  }
   syncPending();
 });
 
+// register service worker
+async function registerSW() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.register('/service-worker.js');
+      console.log('Service worker registrado', reg);
+    } catch (e) {
+      console.warn('Error registrando SW', e);
+    }
+  }
+}
+
+// initialize app: registrar sw, sincronizar participants si hay internet y arrancar scanner
+async function initializeApp(){
+  registerSW();
+
+  if (navigator.onLine) {
+    try {
+      const r = await syncParticipantsFromSupabase();
+      console.log('Sincronización inicial participants:', r);
+      participantsReadyResolve(true);
+    } catch (err) {
+      console.warn('Error sync initial participants', err);
+      participantsReadyResolve(false);
+    }
+  } else {
+    // sin internet: resolvemos para que no se quede esperando indefinidamente
+    participantsReadyResolve(false);
+  }
+
+  // iniciar la UI
+  startScanner();
+}
+
 // init
 wireEmojiButtons();
-startScanner();
+initializeApp();
 
 // --- Utilities for testing / debugging ---
 window.testSupabase = async function testSupabase() {

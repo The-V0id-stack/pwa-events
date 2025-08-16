@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PWA - Scan Your Participant</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./style.css" />
+  <!-- Html5Qrcode -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>      
+</head>
+<body class="bg-gray-100">
+
+  <div id="app" class="app">
+    <div id="status" class="status">Cargando cámara…</div>
+
+    <div id="scanner" class="scanner">
+      <div id="reader" style="width:100%;height:100%"></div>
+      <div class="scan-frame"></div>
+    </div>
+
+    <div id="sheet" class="sheet hidden" aria-hidden="true">
+      <div class="sheet-handle"></div>
+      <div class="sheet-content">
+        <h3 id="sheet-title">Registrar opinión</h3>
+
+        <label class="label">Nombre</label>
+        <input id="input-nombre" readonly class="input" />
+
+        <label class="label">Celular</label>
+        <input id="input-celular" readonly class="input" />
+
+        <div class="label">¿Te interesa el tema?</div>
+        <div class="row" id="q1">
+          <button class="emoji" data-val="Sí">😊</button>
+          <button class="emoji" data-val="Más o menos">😐</button>
+          <button class="emoji" data-val="No">😞</button>
+        </div>
+
+        <div class="label mt">¿Qué tal te pareció el desarrollo del tema?</div>
+        <div class="row" id="q2">
+          <button class="emoji" data-val="Sí">😊</button>
+          <button class="emoji" data-val="Más o menos">😐</button>
+          <button class="emoji" data-val="No">😞</button>
+        </div>
+
+        <div class="hint" id="sheet-hint">Selecciona las dos respuestas para enviar</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

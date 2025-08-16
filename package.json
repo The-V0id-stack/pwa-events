@@ -1,0 +1,10 @@
+{
+  "name": "pwa-evento",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "node scripts/generate-config.js",
+    "build": "echo \"build step (no bundling required)\""
+  },
+  "dependencies": {}
+}

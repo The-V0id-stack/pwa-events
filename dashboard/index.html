@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dash — PWA Evento</title>
+
+  <!-- Opcional: Tailwind CDN para estilos rápidos -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-4xl mx-auto p-4">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-bold">Dashboard administrativo</h2>
+      <div class="space-x-2">
+        <button id="btn-sync" class="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700">Sincronizar ahora</button>
+        <button id="btn-export" class="px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Exportar CSV</button>
+        <a href="/" class="px-3 py-2 rounded bg-gray-500 text-white hover:bg-gray-600">Volver</a>
+      </div>
+    </div>
+
+    <!-- resumen -->
+    <div id="summary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="p-4 bg-white shadow rounded">
+        <div class="text-sm text-gray-500">Participantes</div>
+        <div id="total-participants" class="text-3xl font-bold">—</div>
+      </div>
+      <div class="p-4 bg-white shadow rounded">
+        <div class="text-sm text-gray-500">Respuestas totales</div>
+        <div id="total-responses" class="text-3xl font-bold">—</div>
+      </div>
+      <div class="p-4 bg-white shadow rounded">
+        <div class="text-sm text-gray-500">Pendientes (local)</div>
+        <div id="pending-count" class="text-3xl font-bold text-yellow-600">—</div>
+      </div>
+    </div>
+
+    <!-- breakdown por emojis -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="p-4 bg-white shadow rounded">
+        <h3 class="font-semibold mb-2">¿Te interesa el tema?</h3>
+        <div id="break-interes"></div>
+      </div>
+      <div class="p-4 bg-white shadow rounded">
+        <h3 class="font-semibold mb-2">¿Qué tal el desarrollo?</h3>
+        <div id="break-desarrollo"></div>
+      </div>
+    </div>
+
+    <!-- tabla de respuestas recien -->
+    <div class="p-4 bg-white shadow rounded mb-6">
+      <h3 class="font-semibold mb-2">Respuestas recientes</h3>
+      <div class="overflow-auto">
+        <table class="w-full text-sm" id="responses-table">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="p-2 text-left">Fecha</th>
+              <th class="p-2 text-left">Token</th>
+              <th class="p-2 text-left">Nombre</th>
+              <th class="p-2 text-left">Celular</th>
+              <th class="p-2 text-left">Interés</th>
+              <th class="p-2 text-left">Desarrollo</th>
+              <th class="p-2 text-left">Origen</th>
+            </tr>
+          </thead>
+          <tbody id="responses-body">
+            <!-- filas -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="text-sm text-gray-500">Última sincronización: <span id="last-sync">–</span></div>
+  </div>
+
+  <script type="module" src="./dashboard.js"></script>
+</body>
+</html>

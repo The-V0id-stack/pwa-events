@@ -28,3 +28,47 @@ html,body,#app{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI
 .hint{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
 
 .hidden{display:none}
+#dashboard-link {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  text-decoration: none;
+  border: 2px solid transparent;
+  padding: 10px 20px;
+  font-family: sans-serif;
+  font-weight: bold;
+  border-radius: 50px; /* Bordes más redondeados para un aspecto moderno */
+  
+  /* --- CAMBIOS CLAVE AQUÍ --- */
+
+  /* Fondo de platino con más contraste para un brillo intenso */
+  background: linear-gradient(125deg, #f0f0f0, #ffffff, #f0f0f0);
+  background-size: 300% 100%; /* Tamaño más grande para un "brillo" más largo */
+  
+  
+  /* Color del texto y sombra para hacerlo más legible */
+  color: #1a1a1a;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); 
+  
+  /* Aplicamos la nueva animación de brillo */
+  animation: shimmer 1.5s linear infinite; /* Animación mucho más rápida y visible */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  /* Sombra inicial para darle profundidad */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#dashboard-link:hover {
+  transform: scale(1.08); /* Aumento de tamaño más pronunciado */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2), 0 0 15px rgba(255, 255, 255, 0.7); /* Sombra más grande y un resplandor al pasar el cursor */
+}
+
+/* Nueva animación para el brillo */
+@keyframes shimmer {
+  0% {
+    background-position: -300% 0; /* Empieza fuera del borde izquierdo, más lejos */
+  }
+  100% {
+    background-position: 300% 0; /* Se mueve a través del elemento, más lejos */
+  }
+}

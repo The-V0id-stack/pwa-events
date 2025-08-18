@@ -1,3 +1,12 @@
-/* dashboard/style.css - estilos pequeños si no usas Tailwind */
-body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-table th, table td { border-bottom: 1px solid #f3f3f3; }
+/* dashboard/style.css */
+body { 
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+}
+
+table th, table td { 
+  border-bottom: 1px solid #f3f3f3; 
+}
+
+#responses-table thead th { 
+  background: #fafafa; 
+}

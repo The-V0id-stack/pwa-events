@@ -207,13 +207,13 @@ async function fetchParticipantRemote(token){
       .from('participants')
       .select('token,nombre,celular,email')
       .eq('token', token)
-      .limit(1)
-      .single();
+      .limit(1);
     if (error) {
       console.warn('Supabase fetch participant', error);
       return null;
     }
-    return data;
+    if (data && data.length) return data[0];
+    return null;
   } catch (err) {
     console.warn('fetchParticipantRemote error', err);
     return null;
@@ -243,21 +243,83 @@ async function insertResponseRemote(payload){
   }
 }
 
-// on QR scanned (handler) — actualizado para esperar sync inicial
+/**
+ * Comprueba si ya existe una respuesta para el token.
+ * Revisa primero respuestas locales pendientes (IndexedDB) y luego (si hay conexión) la tabla responses en Supabase.
+ * Retorna {found: boolean, source: 'local'|'remote'|null, row: object|null}
+ */
+async function hasExistingResponse(token){
+  if (!token) return { found:false };
+  try {
+    // 1) local pending responses
+    const pending = await idb.getPendingResponses(); // devuelve array
+    if (pending && pending.length){
+      const f = pending.find(p => String(p.token || '').trim().toUpperCase() === String(token).trim().toUpperCase());
+      if (f) return { found:true, source:'local', row: f };
+    }
+
+    // 2) remote (Supabase)
+    if (navigator.onLine){
+      try {
+        const { data, error } = await supabase
+          .from('responses')
+          .select('offline_id, token, nombre, celular, interes, desarrollo, device_ts')
+          .eq('token', token)
+          .limit(1);
+        if (!error && data && data.length){
+          return { found:true, source:'remote', row: data[0] };
+        }
+      } catch(e){
+        console.warn('hasExistingResponse remote check failed', e);
+      }
+    }
+  } catch(e){
+    console.warn('hasExistingResponse error', e);
+  }
+  return { found:false };
+}
+
+// on QR scanned (handler) — actualizado para bloquear duplicados
 async function onScanSuccess(decodedText){
   if (currentToken) return;
   currentToken = normalizeToken(extractTokenFromText(decodedText));
   statusEl.textContent = `Token: ${currentToken}`;
   await stopScanner();
 
-  // buscar local
+  // 1) comprobar si ya existe respuesta para este token
+  try {
+    const existing = await hasExistingResponse(currentToken);
+    if (existing && existing.found){
+      // Mostrar info básica y no permitir re-submission
+      if (existing.source === 'local'){
+        statusEl.textContent = 'Respuesta ya registrada (local pendiente).';
+      } else {
+        // remote
+        const when = existing.row && existing.row.device_ts ? new Date(existing.row.device_ts).toLocaleString() : '';
+        statusEl.textContent = `Respuesta ya registrada (remote) ${when}`;
+      }
+      // pequeña hint visible en la UI
+      hint.textContent = 'Registro existente — escanea otro participante.';
+      // limpiar token y reiniciar scanner pronto
+      currentToken = null;
+      setTimeout(()=> {
+        hint.textContent = '';
+        startScanner();
+      }, 1500);
+      return;
+    }
+  } catch (e){
+    console.warn('Error comprobando existencia previa', e);
+    // si falla la comprobación, seguir con flujo normal (intentar mostrar form)
+  }
+
+  // buscar local participante (datos para autocompletar)
   let participant = await idb.getParticipant(currentToken);
 
   // Si no lo tenemos local y la app está en proceso de sincronización,
   // esperamos corto (max 3s) por si la sync inicial trae los datos.
   if (!participant) {
     try {
-      // race entre la promesa de ready y timeout 3s
       const timeout = new Promise(res => setTimeout(res, 3000, 'timeout'));
       const wait = participantsReady.then(()=> 'done').catch(()=> 'err');
       const result = await Promise.race([wait, timeout]);
@@ -286,6 +348,7 @@ async function onScanSuccess(decodedText){
   }
 
   statusEl.textContent = 'Participante encontrado';
+  hint.textContent = '';
   await showSheet(participant);
 }
 
@@ -309,7 +372,7 @@ function wireEmojiButtons(){
   });
 }
 
-// auto-submit when both chosen
+// auto-submit when both chosen (con verificación anti-duplicado justo antes de guardar)
 async function tryAutoSubmit(){
   if (!chosen1 || !chosen2) return;
   hint.textContent = 'Enviando…';
@@ -323,6 +386,22 @@ async function tryAutoSubmit(){
     desarrollo: chosen2,
     device_ts: new Date().toISOString()
   };
+
+  // Antes de enviar: comprobar si ya existe (otra instancia pudo haberlo registrado)
+  try {
+    const existing = await hasExistingResponse(currentToken);
+    if (existing && existing.found){
+      hint.textContent = existing.source === 'local' ? 'Ya registrado (local)' : 'Ya registrado (remote)';
+      // ocultar form y reiniciar
+      currentToken = null;
+      hideSheet();
+      setTimeout(()=> { hint.textContent = ''; startScanner(); }, 600);
+      return;
+    }
+  } catch(e){
+    console.warn('check before submit failed', e);
+    // si falla la comprobación, seguimos y guardamos local como fallback
+  }
 
   if (navigator.onLine){
     try {
@@ -341,6 +420,7 @@ async function tryAutoSubmit(){
         setTimeout(()=> startScanner(), 400);
         return;
       }
+      // si falla por red o RLS, se guardará localmente
     }
   }
 
@@ -358,7 +438,7 @@ async function tryAutoSubmit(){
   setTimeout(()=> startScanner(), 400);
 }
 
-// sync pending to Supabase
+// sync pending to Supabase (puedes usar tu versión previa o la mejorada)
 async function syncPending(){
   const pend = await idb.getPendingResponses();
   for (const r of pend){
